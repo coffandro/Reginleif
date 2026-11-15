@@ -1,0 +1,24 @@
+name: 🔗 GHA
+on: [pull_request, merge_group, workflow_dispatch]
+
+concurrency:
+  group: ${{ github.workflow }}|${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  # First stage: Only static checks, fast and prevent expensive builds from running.
+
+  static-checks:
+    if: ${{ !vars.DISABLE_GODOT_CI || github.run_attempt > 1 || github.event_name == 'workflow_dispatch' }}
+    name: 📊 Static checks
+    uses: ./.github/workflows/static_checks.yml
+
+  # Second stage: Run all the builds and some of the tests.
+
+  linux-build:
+    name: 🐧 Linux
+    needs: static-checks
+    if: needs.static-checks.outputs.sources-changed == 'true' || github.event_name != 'pull_request'
+    uses: ./.github/workflows/linux_builds.yml
+    with:
+      changed-files: ${{ needs.static-checks.outputs.changed-files }}
